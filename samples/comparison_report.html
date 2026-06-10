@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Performance Comparison Report</title>
+<style>
+:root{--bg:#0f1419;--card:#1a2230;--line:#2a3548;--txt:#e6edf3;--muted:#8b98a9;
+--accent:#4f9cf9;--good:#3fb950;--bad:#f85149;--warn:#d29922;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.wrap{max-width:1200px;margin:0 auto;padding:32px 20px 60px}
+header h1{margin:0 0 4px;font-size:24px;font-weight:650}
+header .sub{color:var(--muted);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+gap:14px;margin:26px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.kpi .v{font-size:22px;font-weight:680}
+.kpi .l{color:var(--muted);font-size:12px;margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:10px 0 30px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.panel h3{margin:0 0 12px;font-size:14px;font-weight:600;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;
+letter-spacing:.04em;position:sticky;top:0;background:var(--card)}
+tr.total{font-weight:700;background:#202a3a}
+.err-ok{color:var(--good)} .err-warn{color:var(--warn)} .err-bad{color:var(--bad)}
+.tablewrap{overflow:auto;max-height:560px;border:1px solid var(--line);border-radius:12px}
+footer{color:var(--muted);font-size:12px;margin-top:30px;text-align:center}
+@media(max-width:760px){.charts{grid-template-columns:1fr}}
+
+.legend{display:flex;gap:18px;margin:8px 0 22px;font-size:12px;color:var(--muted)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.dot.good{background:var(--good)}.dot.bad{background:var(--bad)}.dot.neutral{background:var(--muted)}
+.up{color:var(--bad)}.down{color:var(--good)}
+.good-txt{color:var(--good)}.bad-txt{color:var(--bad)}.neutral-txt{color:var(--muted)}
+.names{display:flex;gap:14px;margin:6px 0 18px;flex-wrap:wrap}
+.names .n{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13px}
+.names .n b{color:var(--accent)}
+.tag{font-size:10px;padding:2px 7px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+.tag.added{color:var(--good);border-color:var(--good)}
+.tag.removed{color:var(--bad);border-color:var(--bad)}
+section{margin:26px 0}
+section h2{font-size:15px;font-weight:620;border-left:3px solid var(--accent);padding-left:10px}
+</style></head>
+<body><div class="wrap">
+<header><h1>Performance Comparison Report</h1>
+<div class="sub">Generated 2026-06-10 17:50:11 &middot; Baseline (A) vs Current (B)</div></header>
+
+<div class="names">
+  <div class="n"><b>A &middot; Baseline</b> &nbsp;baseline_report.html</div>
+  <div class="n"><b>B &middot; Current</b> &nbsp;current_report.html</div>
+</div>
+<div class="legend">
+  <span><span class="dot good"></span>Improvement (&ge;10%)</span>
+  <span><span class="dot bad"></span>Regression (&ge;10%)</span>
+  <span><span class="dot neutral"></span>Within threshold</span>
+</div>
+
+<section><h2>Overall</h2><div class="panel"><table><thead><tr><th>Metric</th><th>Baseline (A)</th><th>Current (B)</th><th>&Delta;</th><th>&Delta;%</th></tr></thead><tbody><tr><td># Samples</td><td>8,000</td><td>8,000</td><td>+0.00</td><td class="neutral-txt">+0.0%</td></tr><tr><td>Average</td><td>330</td><td>370</td><td>+39.10</td><td class="bad-txt">&#9650; +11.8%</td></tr><tr><td>Median</td><td>268</td><td>254</td><td>-14.00</td><td class="neutral-txt">-5.2%</td></tr><tr><td>90% Line</td><td>624</td><td>909</td><td>+285.00</td><td class="bad-txt">&#9650; +45.7%</td></tr><tr><td>95% Line</td><td>724</td><td>1,081</td><td>+357.00</td><td class="bad-txt">&#9650; +49.3%</td></tr><tr><td>99% Line</td><td>896</td><td>1,333</td><td>+437.00</td><td class="bad-txt">&#9650; +48.8%</td></tr><tr><td>Max</td><td>1,182</td><td>1,738</td><td>+556.00</td><td class="bad-txt">&#9650; +47.0%</td></tr><tr><td>Error %</td><td>1.80%</td><td>3.09%</td><td>+1.29</td><td class="bad-txt">&#9650; +71.7%</td></tr><tr><td>Throughput</td><td>124</td><td>123</td><td>-1.17</td><td class="neutral-txt">-0.9%</td></tr></tbody></table></div></section>
+<section><h2>By Transaction</h2><div class="panel" style="margin-bottom:16px"><h3 style="color:var(--txt);font-size:14px">AddToCart</h3><table><thead><tr><th>Metric</th><th>Baseline (A)</th><th>Current (B)</th><th>&Delta;</th><th>&Delta;%</th></tr></thead><tbody><tr><td># Samples</td><td>1,645</td><td>1,604</td><td>-41.00</td><td class="neutral-txt">-2.5%</td></tr><tr><td>Average</td><td>220</td><td>217</td><td>-2.50</td><td class="neutral-txt">-1.1%</td></tr><tr><td>Median</td><td>221</td><td>217</td><td>-4.00</td><td class="neutral-txt">-1.8%</td></tr><tr><td>90% Line</td><td>303</td><td>304</td><td>+1.00</td><td class="neutral-txt">+0.3%</td></tr><tr><td>95% Line</td><td>328</td><td>322</td><td>-5.80</td><td class="neutral-txt">-1.8%</td></tr><tr><td>99% Line</td><td>369</td><td>364</td><td>-5.00</td><td class="neutral-txt">-1.4%</td></tr><tr><td>Max</td><td>466</td><td>408</td><td>-58.00</td><td class="good-txt">&#9660; -12.4%</td></tr><tr><td>Error %</td><td>1.52%</td><td>1.75%</td><td>+0.23</td><td class="bad-txt">&#9650; +15.1%</td></tr><tr><td>Throughput</td><td>26</td><td>25</td><td>-0.78</td><td class="neutral-txt">-3.0%</td></tr></tbody></table></div><div class="panel" style="margin-bottom:16px"><h3 style="color:var(--txt);font-size:14px">Checkout</h3><table><thead><tr><th>Metric</th><th>Baseline (A)</th><th>Current (B)</th><th>&Delta;</th><th>&Delta;%</th></tr></thead><tbody><tr><td># Samples</td><td>1,597</td><td>1,635</td><td>+38.00</td><td class="neutral-txt">+2.4%</td></tr><tr><td>Average</td><td>606</td><td>901</td><td>+295.60</td><td class="bad-txt">&#9650; +48.8%</td></tr><tr><td>Median</td><td>605</td><td>902</td><td>+297.00</td><td class="bad-txt">&#9650; +49.1%</td></tr><tr><td>90% Line</td><td>823</td><td>1,243</td><td>+420.20</td><td class="bad-txt">&#9650; +51.1%</td></tr><tr><td>95% Line</td><td>896</td><td>1,332</td><td>+435.20</td><td class="bad-txt">&#9650; +48.5%</td></tr><tr><td>99% Line</td><td>1,011</td><td>1,502</td><td>+491.10</td><td class="bad-txt">&#9650; +48.6%</td></tr><tr><td>Max</td><td>1,182</td><td>1,738</td><td>+556.00</td><td class="bad-txt">&#9650; +47.0%</td></tr><tr><td>Error %</td><td>2.07%</td><td>5.81%</td><td>+3.74</td><td class="bad-txt">&#9650; +180.7%</td></tr><tr><td>Throughput</td><td>25</td><td>25</td><td>+0.37</td><td class="neutral-txt">+1.5%</td></tr></tbody></table></div><div class="panel" style="margin-bottom:16px"><h3 style="color:var(--txt);font-size:14px">Login</h3><table><thead><tr><th>Metric</th><th>Baseline (A)</th><th>Current (B)</th><th>&Delta;</th><th>&Delta;%</th></tr></thead><tbody><tr><td># Samples</td><td>1,539</td><td>1,563</td><td>+24.00</td><td class="neutral-txt">+1.6%</td></tr><tr><td>Average</td><td>250</td><td>252</td><td>+2.70</td><td class="neutral-txt">+1.1%</td></tr><tr><td>Median</td><td>252</td><td>252</td><td>+0.00</td><td class="neutral-txt">+0.0%</td></tr><tr><td>90% Line</td><td>346</td><td>351</td><td>+4.80</td><td class="neutral-txt">+1.4%</td></tr><tr><td>95% Line</td><td>376</td><td>377</td><td>+1.00</td><td class="neutral-txt">+0.3%</td></tr><tr><td>99% Line</td><td>422</td><td>426</td><td>+4.00</td><td class="neutral-txt">+0.9%</td></tr><tr><td>Max</td><td>552</td><td>562</td><td>+10.00</td><td class="neutral-txt">+1.8%</td></tr><tr><td>Error %</td><td>2.14%</td><td>2.05%</td><td>-0.09</td><td class="neutral-txt">-4.2%</td></tr><tr><td>Throughput</td><td>24</td><td>24</td><td>+0.18</td><td class="neutral-txt">+0.7%</td></tr></tbody></table></div><div class="panel" style="margin-bottom:16px"><h3 style="color:var(--txt);font-size:14px">Search</h3><table><thead><tr><th>Metric</th><th>Baseline (A)</th><th>Current (B)</th><th>&Delta;</th><th>&Delta;%</th></tr></thead><tbody><tr><td># Samples</td><td>1,609</td><td>1,594</td><td>-15.00</td><td class="neutral-txt">-0.9%</td></tr><tr><td>Average</td><td>400</td><td>282</td><td>-117.20</td><td class="good-txt">&#9660; -29.3%</td></tr><tr><td>Median</td><td>399</td><td>283</td><td>-116.00</td><td class="good-txt">&#9660; -29.1%</td></tr><tr><td>90% Line</td><td>555</td><td>389</td><td>-166.00</td><td class="good-txt">&#9660; -29.9%</td></tr><tr><td>95% Line</td><td>600</td><td>420</td><td>-180.50</td><td class="good-txt">&#9660; -30.1%</td></tr><tr><td>99% Line</td><td>671</td><td>480</td><td>-190.90</td><td class="good-txt">&#9660; -28.5%</td></tr><tr><td>Max</td><td>808</td><td>602</td><td>-206.00</td><td class="good-txt">&#9660; -25.5%</td></tr><tr><td>Error %</td><td>1.80%</td><td>2.89%</td><td>+1.09</td><td class="bad-txt">&#9650; +60.6%</td></tr><tr><td>Throughput</td><td>25</td><td>25</td><td>-0.29</td><td class="neutral-txt">-1.2%</td></tr></tbody></table></div><div class="panel" style="margin-bottom:16px"><h3 style="color:var(--txt);font-size:14px">ViewProduct</h3><table><thead><tr><th>Metric</th><th>Baseline (A)</th><th>Current (B)</th><th>&Delta;</th><th>&Delta;%</th></tr></thead><tbody><tr><td># Samples</td><td>1,610</td><td>1,604</td><td>-6.00</td><td class="neutral-txt">-0.4%</td></tr><tr><td>Average</td><td>179</td><td>181</td><td>+2.10</td><td class="neutral-txt">+1.2%</td></tr><tr><td>Median</td><td>179</td><td>182</td><td>+3.00</td><td class="neutral-txt">+1.7%</td></tr><tr><td>90% Line</td><td>247</td><td>253</td><td>+5.60</td><td class="neutral-txt">+2.3%</td></tr><tr><td>95% Line</td><td>270</td><td>269</td><td>-0.50</td><td class="neutral-txt">-0.2%</td></tr><tr><td>99% Line</td><td>310</td><td>301</td><td>-9.10</td><td class="neutral-txt">-2.9%</td></tr><tr><td>Max</td><td>393</td><td>375</td><td>-18.00</td><td class="neutral-txt">-4.6%</td></tr><tr><td>Error %</td><td>1.49%</td><td>2.87%</td><td>+1.38</td><td class="bad-txt">&#9650; +92.6%</td></tr><tr><td>Throughput</td><td>25</td><td>25</td><td>-0.21</td><td class="neutral-txt">-0.8%</td></tr></tbody></table></div></section>
+
+<footer>Generated by JMeter Performance Utility &middot; A=baseline, B=current. For response time &amp; errors, lower is better; for throughput, higher is better.</footer>
+</div></body></html>
