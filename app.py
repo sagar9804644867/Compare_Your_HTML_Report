@@ -1,151 +1,155 @@
 """
 JMeter Performance Utility — Streamlit app.
 
-Two workflows:
-  1. JTL -> HTML report (upload .jtl, generate a self-contained HTML report, download).
-  2. Compare HTML reports (upload two HTML reports, generate a comparison report,
-     download). Works with reports made by this tool and with external
-     JMeter Aggregate / single-file plugin HTML reports.
+Tab 1: build an HTML report from raw .jtl or a summary .csv, with Apdex + SLA.
+Tab 2: compare two reports. Inputs can be .html (this tool / JMeter dashboard /
+       plugin / Aggregate export), .csv (summary), or raw .jtl.
 """
 
 import streamlit as st
 
-from src.jtl_parser import load_many, compute_statistics
+from src.jtl_parser import load_many, compute_statistics, load_csv_any
 from src.report_generator import generate_html_report
-from src.html_comparator import extract_stats_from_html, compare
+from src.html_comparator import extract_stats_from_upload, compare
 from src.comparison_report import generate_comparison_html
 
 st.set_page_config(page_title="JMeter Performance Utility", page_icon="📊", layout="wide")
-
-# Session memory for chaining generate -> compare.
-st.session_state.setdefault("generated", [])  # list of (name, html)
+st.session_state.setdefault("generated", [])  # [(name, html)]
 
 st.title("📊 JMeter Performance Utility")
-st.caption("Convert JTL results into HTML reports and compare two reports for regressions.")
+st.caption("Convert JTL/CSV results into rich HTML reports and compare two reports for regressions.")
 
-tab_gen, tab_cmp = st.tabs(["① JTL → HTML Report", "② Compare HTML Reports"])
+tab_gen, tab_cmp = st.tabs(["① Build HTML Report", "② Compare Reports"])
 
-
-# ---------------------------------------------------------------------------
-# Tab 1: JTL -> HTML report
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- #
+# Tab 1
+# --------------------------------------------------------------------------- #
 with tab_gen:
-    st.subheader("Generate an HTML report from JTL")
+    st.subheader("Build an HTML report")
     st.write(
-        "Upload one or more JMeter `.jtl` result files (CSV format). "
-        "Multiple files are merged — useful for distributed/multi-engine runs."
+        "Upload raw JMeter `.jtl` result file(s) — *or* a Summary/Aggregate `.csv` export. "
+        "Multiple `.jtl` files are merged (useful for distributed runs)."
     )
-
-    jtl_files = st.file_uploader(
-        "Upload .jtl file(s)", type=["jtl", "csv", "xml"],
-        accept_multiple_files=True, key="jtl_upload",
+    files = st.file_uploader(
+        "Upload .jtl / .csv / .xml", type=["jtl", "csv", "xml"],
+        accept_multiple_files=True, key="gen_upload",
     )
-    report_title = st.text_input("Report title", value="JMeter Performance Report")
+    c1, c2, c3 = st.columns(3)
+    title = c1.text_input("Report title", value="JMeter Performance Report")
+    apdex_t = c2.number_input("Apdex threshold T (ms)", min_value=50, max_value=20000,
+                              value=500, step=50,
+                              help="Requests ≤ T are 'satisfied'; ≤ 4T are 'tolerating'.")
+    with c3:
+        st.write("SLA targets (optional)")
+        sla_on = st.checkbox("Enable SLA pass/fail")
+    sla = None
+    if sla_on:
+        s1, s2 = st.columns(2)
+        sla = {
+            "p90_ms": s1.number_input("90% Line target (ms)", min_value=0, value=2000, step=100),
+            "error_pct": s2.number_input("Error % target", min_value=0.0, value=1.0, step=0.5),
+        }
 
-    if st.button("Generate HTML Report", type="primary", disabled=not jtl_files):
+    if st.button("Generate HTML Report", type="primary", disabled=not files):
         try:
-            with st.spinner("Parsing JTL and building report…"):
-                payload = [(f.name, f.getvalue()) for f in jtl_files]
-                df = load_many(payload)
-                stats = compute_statistics(df, report_title.strip() or "JMeter Performance Report")
+            with st.spinner("Parsing and building report…"):
+                raw_files = [(f.name, f.getvalue()) for f in files]
+                # If any are aggregate CSV, build from the first; else merge raw events.
+                if len(raw_files) == 1 and raw_files[0][0].lower().endswith(".csv"):
+                    stats = load_csv_any(raw_files[0][1], title.strip() or "Report", apdex_t, sla)
+                else:
+                    df = load_many(raw_files)
+                    stats = compute_statistics(df, title.strip() or "Report", apdex_t, sla)
                 html = generate_html_report(stats)
 
             ov = stats["overall"]
-            c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Samples", f"{stats['meta']['total_samples']:,}")
-            c2.metric("Avg (ms)", f"{ov['average']:,.0f}")
-            c3.metric("90th pct (ms)", f"{ov['pct90']:,.0f}")
-            c4.metric("Error %", f"{ov['error_pct']:.2f}%")
-            c5.metric("Throughput /s", f"{ov['throughput']:,.2f}")
+            cols = st.columns(6)
+            cols[0].metric("Samples", f"{stats['meta']['total_samples']:,}")
+            cols[1].metric("Avg (ms)", f"{ov['average']:,.0f}")
+            cols[2].metric("90th (ms)", f"{ov['pct90']:,.0f}")
+            cols[3].metric("Error %", f"{ov['error_pct']:.2f}%")
+            cols[4].metric("Throughput/s", f"{ov['throughput']:,.2f}")
+            cols[5].metric("Apdex", f"{ov.get('apdex',0):.3f}", ov.get("apdex_rating", ""))
 
-            fname = (report_title.strip() or "report").replace(" ", "_") + ".html"
-            st.download_button(
-                "⬇️ Download HTML Report", data=html, file_name=fname,
-                mime="text/html", type="primary",
-            )
+            if sla:
+                failed = stats["meta"].get("sla_failed", 0)
+                (st.error if failed else st.success)(
+                    f"SLA {'FAIL' if failed else 'PASS'} — "
+                    f"{failed} transaction(s) breached." if failed else "SLA PASS — all within targets.")
 
-            # Keep it for the compare tab.
-            st.session_state["generated"] = (
-                [(fname, html)] + st.session_state["generated"]
-            )[:5]
-
+            fname = (title.strip() or "report").replace(" ", "_") + ".html"
+            st.download_button("⬇️ Download HTML Report", data=html, file_name=fname,
+                               mime="text/html", type="primary")
+            st.session_state["generated"] = ([(fname, html)] + st.session_state["generated"])[:5]
             with st.expander("Preview report", expanded=True):
-                st.components.v1.html(html, height=620, scrolling=True)
-
-            st.info("This report is now also available to select in the **Compare** tab.")
+                st.components.v1.html(html, height=640, scrolling=True)
+            st.info("This report is now selectable in the **Compare** tab.")
         except Exception as exc:  # noqa: BLE001
             st.error(f"Could not generate report: {exc}")
 
-
-# ---------------------------------------------------------------------------
-# Tab 2: Compare two HTML reports
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------- #
+# Tab 2
+# --------------------------------------------------------------------------- #
 with tab_cmp:
-    st.subheader("Compare two HTML reports")
+    st.subheader("Compare two reports")
     st.write(
-        "Provide two HTML reports — **A = baseline**, **B = current**. "
-        "Accepts reports generated by this tool, JMeter *Aggregate Report* exports, "
-        "or single-file plugin HTML reports containing a statistics table."
+        "**A = baseline**, **B = current**. Each side accepts an HTML report "
+        "(this tool, JMeter HTML dashboard, plugin, or Aggregate export), a Summary "
+        "`.csv`, or a raw `.jtl`. If a plugin's HTML can't be read, upload its `.csv` "
+        "or the original `.jtl` instead."
     )
-
     generated_names = [n for n, _ in st.session_state["generated"]]
     gen_lookup = dict(st.session_state["generated"])
 
-    def _slot(letter: str):
-        """Return (name, bytes) for one comparison slot, or None."""
+    def slot(letter):
         st.markdown(f"**Report {letter}**")
-        source = "Upload file"
+        src = "Upload file"
         if generated_names:
-            source = st.radio(
-                f"Source for {letter}", ["Upload file", "Use a generated report"],
-                key=f"src_{letter}", horizontal=True,
-            )
-        if source == "Use a generated report" and generated_names:
-            pick = st.selectbox(
-                f"Generated report for {letter}", generated_names, key=f"pick_{letter}",
-            )
+            src = st.radio(f"Source {letter}", ["Upload file", "Use a generated report"],
+                           key=f"src_{letter}", horizontal=True)
+        if src == "Use a generated report" and generated_names:
+            pick = st.selectbox(f"Generated report {letter}", generated_names, key=f"pick_{letter}")
             return pick, gen_lookup[pick].encode("utf-8")
-        up = st.file_uploader(
-            f"Upload HTML report {letter}", type=["html", "htm"], key=f"html_{letter}",
-        )
+        up = st.file_uploader(f"Upload report {letter}", type=["html", "htm", "csv", "jtl", "xml"],
+                              key=f"up_{letter}")
         return (up.name, up.getvalue()) if up else None
 
-    col_a, col_b = st.columns(2)
-    with col_a:
-        slot_a = _slot("A")
-    with col_b:
-        slot_b = _slot("B")
+    ca, cb = st.columns(2)
+    with ca:
+        slot_a = slot("A")
+    with cb:
+        slot_b = slot("B")
 
-    ready = slot_a is not None and slot_b is not None
-    if st.button("Compare Reports", type="primary", disabled=not ready):
+    if st.button("Compare Reports", type="primary", disabled=not (slot_a and slot_b)):
         try:
             with st.spinner("Extracting statistics and comparing…"):
-                stats_a = extract_stats_from_html(slot_a[1])
-                stats_b = extract_stats_from_html(slot_b[1])
-                cmp = compare(stats_a, stats_b, slot_a[0], slot_b[0])
+                sa = extract_stats_from_upload(slot_a[0], slot_a[1])
+                sb = extract_stats_from_upload(slot_b[0], slot_b[1])
+                cmp = compare(sa, sb, slot_a[0], slot_b[0])
                 html = generate_comparison_html(cmp)
 
-            # Headline deltas on overall.
-            cols = st.columns(4)
-            wanted = {"Average": 0, "90% Line": 1, "Error %": 2, "Throughput": 3}
-            for m in cmp["overall"]:
-                if m["metric"] in wanted:
-                    c = cols[wanted[m["metric"]]]
-                    delta_color = "inverse" if m["metric"] != "Throughput" else "normal"
-                    c.metric(m["metric"], f"{m['b']:,.2f}", f"{m['pct']:+.1f}%",
-                             delta_color=delta_color)
+            s = cmp["summary"]
+            (st.error if s["verdict"] == "FAIL" else st.success)(
+                f"Verdict: {s['verdict']} — {s['regressions']} regression(s), "
+                f"{s['improvements']} improvement(s)"
+                + (f" · worst: {s['worst_label']} ({s['worst_pct']:+.1f}%)" if s["worst_label"] else ""))
 
-            st.download_button(
-                "⬇️ Download Comparison Report", data=html,
-                file_name="comparison_report.html", mime="text/html", type="primary",
-            )
+            cols = st.columns(4)
+            cols[0].metric("Transactions", s["total"])
+            cols[1].metric("Regressions", s["regressions"])
+            cols[2].metric("Improvements", s["improvements"])
+            cols[3].metric("Stable", s["stable"])
+
+            st.download_button("⬇️ Download Comparison Report", data=html,
+                               file_name="comparison_report.html", mime="text/html", type="primary")
             with st.expander("Preview comparison", expanded=True):
-                st.components.v1.html(html, height=620, scrolling=True)
+                st.components.v1.html(html, height=640, scrolling=True)
         except Exception as exc:  # noqa: BLE001
             st.error(f"Could not compare reports: {exc}")
 
 st.divider()
 st.caption(
-    "For response time and error metrics lower is better; for throughput higher is better. "
-    "Changes ≥10% are flagged as improvement/regression."
+    "Metrics include Apdex, p90/95/99/99.9, coefficient of variation (stability), "
+    "latency/connect breakdown, throughput, and error-code breakdown — richest when "
+    "you start from raw .jtl. Lower is better for response time/errors; higher for throughput/Apdex."
 )
