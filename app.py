@@ -36,33 +36,41 @@ with tab_gen:
     )
     c1, c2, c3 = st.columns(3)
     title = c1.text_input("Report title", value="JMeter Performance Report")
-    apdex_t = c2.number_input("Apdex threshold T (ms)", min_value=50, max_value=20000,
+    scenario = c2.text_input("Scenario name", value="Test Plan")
+    apdex_t = c3.number_input("Apdex threshold T (ms)", min_value=50, max_value=20000,
                               value=500, step=50,
                               help="Requests ≤ T are 'satisfied'; ≤ 4T are 'tolerating'.")
-    with c3:
+    c4, c5, c6 = st.columns(3)
+    err_verdict = c4.number_input("Verdict: fail if error % >", min_value=0.0, value=0.0, step=0.1,
+                                  help="Overall PASS/FAIL. 0 = any error fails the run (JAAR-style).")
+    with c5:
         st.write("SLA targets (optional)")
         sla_on = st.checkbox("Enable SLA pass/fail")
     sla = None
     if sla_on:
-        s1, s2 = st.columns(2)
         sla = {
-            "p90_ms": s1.number_input("90% Line target (ms)", min_value=0, value=2000, step=100),
-            "error_pct": s2.number_input("Error % target", min_value=0.0, value=1.0, step=0.5),
+            "p90_ms": c6.number_input("90% Line target (ms)", min_value=0, value=2000, step=100),
+            "error_pct": c6.number_input("Error % target", min_value=0.0, value=1.0, step=0.5),
         }
 
     if st.button("Generate HTML Report", type="primary", disabled=not files):
         try:
             with st.spinner("Parsing and building report…"):
                 raw_files = [(f.name, f.getvalue()) for f in files]
-                # If any are aggregate CSV, build from the first; else merge raw events.
                 if len(raw_files) == 1 and raw_files[0][0].lower().endswith(".csv"):
                     stats = load_csv_any(raw_files[0][1], title.strip() or "Report", apdex_t, sla)
                 else:
                     df = load_many(raw_files)
-                    stats = compute_statistics(df, title.strip() or "Report", apdex_t, sla)
+                    stats = compute_statistics(df, title.strip() or "Report", apdex_t, sla,
+                                               scenario_name=scenario.strip() or "Test Plan",
+                                               error_sla_pct=err_verdict)
                 html = generate_html_report(stats)
 
             ov = stats["overall"]
+            v = stats["meta"].get("verdict", "PASS")
+            (st.error if v == "FAIL" else st.success)(
+                f"Verdict: {v}" + (f" — {'; '.join(stats['meta'].get('verdict_reasons', []))}"
+                                   if stats['meta'].get('verdict_reasons') else ""))
             cols = st.columns(6)
             cols[0].metric("Samples", f"{stats['meta']['total_samples']:,}")
             cols[1].metric("Avg (ms)", f"{ov['average']:,.0f}")
@@ -70,19 +78,16 @@ with tab_gen:
             cols[3].metric("Error %", f"{ov['error_pct']:.2f}%")
             cols[4].metric("Throughput/s", f"{ov['throughput']:,.2f}")
             cols[5].metric("Apdex", f"{ov.get('apdex',0):.3f}", ov.get("apdex_rating", ""))
-
-            if sla:
-                failed = stats["meta"].get("sla_failed", 0)
-                (st.error if failed else st.success)(
-                    f"SLA {'FAIL' if failed else 'PASS'} — "
-                    f"{failed} transaction(s) breached." if failed else "SLA PASS — all within targets.")
+            st.caption(f"Workload: {stats['meta'].get('classification',{}).get('kind','-')} · "
+                       f"Duration {stats['meta'].get('duration_str','-')} · "
+                       f"Peak VUs {stats['meta'].get('max_threads',0)}")
 
             fname = (title.strip() or "report").replace(" ", "_") + ".html"
             st.download_button("⬇️ Download HTML Report", data=html, file_name=fname,
                                mime="text/html", type="primary")
             st.session_state["generated"] = ([(fname, html)] + st.session_state["generated"])[:5]
             with st.expander("Preview report", expanded=True):
-                st.components.v1.html(html, height=640, scrolling=True)
+                st.components.v1.html(html, height=780, scrolling=True)
             st.info("This report is now selectable in the **Compare** tab.")
         except Exception as exc:  # noqa: BLE001
             st.error(f"Could not generate report: {exc}")
